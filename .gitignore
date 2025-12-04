@@ -1,0 +1,11 @@
+# Virtual environments
+.venv/
+trufflehog-venv/
+semgrep-venv/
+
+# Reports
+scan-report.json
+
+# Python cache
+__pycache__/
+*.pyc
