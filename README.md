@@ -1,5 +1,3 @@
-Perfect! Here’s your README fully polished in GitHub Markdown, ready to paste into your README.md file:
-
 # Repo-Scanner
 
 Repo-Scanner is a Python-based tool for scanning Git repositories for potential security issues, secrets, and vulnerable dependencies. It integrates **Semgrep**, **TruffleHog**, and **pip-audit** to provide comprehensive reports.
