@@ -9,3 +9,4 @@ scan-report.json
 # Python cache
 __pycache__/
 *.pyc
+scan-report.json
