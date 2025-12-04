@@ -3,98 +3,74 @@ import subprocess
 import json
 import tempfile
 import shutil
+import time
 from pathlib import Path
 
-# -----------------------------
-# Helper: run shell commands
-# -----------------------------
 def run_cmd(cmd):
     try:
-        result = subprocess.run(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
-        )
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         return result.stdout, result.stderr
     except Exception as e:
         return "", str(e)
 
-# -----------------------------
-# Run Semgrep
-# -----------------------------
 def run_semgrep(repo_path):
-    semgrep_bin = str(Path.home() / "repo-scanner/.venv/bin/semgrep")
+    semgrep_bin = str(Path.home() / "semgrep-venv/bin/semgrep")
     cmd = [semgrep_bin, "scan", "--json", "--severity=INFO", repo_path]
     out, err = run_cmd(cmd)
     return {"output": out, "error": err}
 
-# -----------------------------
-# Run TruffleHog
-# -----------------------------
 def run_trufflehog(repo_path):
-    trufflehog_bin = str(Path.home() / "repo-scanner/.venv/bin/trufflehog")
+    trufflehog_bin = str(Path.home() / "trufflehog-venv/bin/trufflehog")
     cmd = [trufflehog_bin, "--json", repo_path]
     out, err = run_cmd(cmd)
     return {"output": out, "error": err}
 
-# -----------------------------
-# Run pip-audit
-# -----------------------------
 def run_pip_audit(repo_path):
-    # Look for requirements.txt in the repo
-    req_files = list(Path(repo_path).rglob("requirements.txt"))
-    results = []
-    for req_file in req_files:
-        cmd = ["pip-audit", "-r", str(req_file), "--json"]
-        out, err = run_cmd(cmd)
-        results.append({"file": str(req_file), "output": out, "error": err})
-    return results
+    req_file = Path(repo_path) / "requirements.txt"
+    if not req_file.exists():
+        return {"output": "", "error": "No requirements.txt found"}
+    cmd = ["pip-audit", "-r", str(req_file), "--json"]
+    out, err = run_cmd(cmd)
+    return {"output": out, "error": err}
 
-# -----------------------------
-# Main scanning function
-# -----------------------------
-def scan_repo(git_url):
-    report_data = {}
-
-    # Create a temporary directory for cloning
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmp_path = Path(tmpdir)
-        print("[+] Cloning repository…")
-        clone_cmd = ["git", "clone", "--depth", "1", git_url, str(tmp_path)]
-        out, err = run_cmd(clone_cmd)
-        if err:
-            print(f"[-] Failed to clone repository:\n{err}")
-            return
-
-        # Run Semgrep
-        print("[+] Running Semgrep…")
-        report_data["semgrep"] = run_semgrep(tmp_path)
-
-        # Run TruffleHog
-        print("[+] Running TruffleHog…")
-        report_data["trufflehog"] = run_trufflehog(tmp_path)
-
-        # Run pip-audit
-        print("[+] Running pip-audit…")
-        report_data["pip_audit"] = run_pip_audit(tmp_path)
-
-    # Save report
-    reports_dir = Path.home() / "repo-scanner" / "reports"
-    reports_dir.mkdir(parents=True, exist_ok=True)
-    report_path = reports_dir / "scan-report.json"
-
-    with open(report_path, "w") as f:
-        json.dump(report_data, f, indent=4)
-
-    print(f"[✓] Scan complete! Report saved to {report_path}")
-
-# -----------------------------
-# Entry point
-# -----------------------------
-if __name__ == "__main__":
+def main():
     git_url = input("Enter git clone URL: ").strip()
-    if git_url:
-        scan_repo(git_url)
-    else:
-        print("[-] No URL provided.")
+    repo_name = git_url.rstrip("/").split("/")[-1]
+    tmp_dir = tempfile.mkdtemp()
+    repo_path = os.path.join(tmp_dir, repo_name)
+
+    print("[+] Cloning repository…")
+    out, err = run_cmd(["git", "clone", git_url, repo_path])
+    if err and "fatal" in err.lower():
+        print("[-] Failed to clone repository:\n", err)
+        shutil.rmtree(tmp_dir)
+        return
+
+    print("[+] Running Semgrep…")
+    semgrep_results = run_semgrep(repo_path)
+
+    print("[+] Running TruffleHog…")
+    trufflehog_results = run_trufflehog(repo_path)
+
+    print("[+] Running pip-audit…")
+    pip_audit_results = run_pip_audit(repo_path)
+
+    shutil.rmtree(tmp_dir)
+
+    timestamp = int(time.time())
+    report_file = f"scan-report_{repo_name}_{timestamp}.json"
+
+    report = {
+        "repo": git_url,
+        "semgrep": semgrep_results,
+        "trufflehog": trufflehog_results,
+        "pip_audit": pip_audit_results
+    }
+
+    with open(report_file, "w") as f:
+        json.dump(report, f, indent=2)
+
+    print(f"[+] Scan complete! Report saved to {report_file}")
+
+if __name__ == "__main__":
+    main()

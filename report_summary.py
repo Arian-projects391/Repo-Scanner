@@ -1,39 +1,40 @@
 import json
-from pathlib import Path
+import sys
 
-# Path to your scan report
-report_path = Path.home() / "repo-scanner" / "scan-report.json"
+def summarize_report(report_file):
+    with open(report_file, "r") as f:
+        data = json.load(f)
 
-if not report_path.exists():
-    print(f"Report file not found at {report_path}")
-    exit(1)
+    print(f"\n=== Scan Summary for {data['repo']} ===\n")
 
-# Load JSON
-with open(report_path, "r") as f:
-    report = json.load(f)
+    # Semgrep summary
+    sem = data.get("semgrep", {})
+    print("Semgrep Results:")
+    if sem.get("output"):
+        print("Scan completed, see detailed JSON output.")
+    if sem.get("error"):
+        print("Errors / Status:\n", sem["error"])
 
-# Print clean summary
-print(f"\n=== Scan Summary for {report.get('repo')} ===\n")
+    # TruffleHog summary
+    th = data.get("trufflehog", {})
+    print("\nTruffleHog Results:")
+    if th.get("output"):
+        print(th["output"])
+    else:
+        print("No secrets found." if not th.get("error") else th.get("error"))
 
-# Semgrep
-semgrep_summary = report.get("semgrep", {}).get("error", "").strip()
-print("Semgrep Results:")
-print(semgrep_summary or "No Semgrep output.\n")
+    # pip-audit summary
+    pa = data.get("pip_audit", {})
+    print("\npip-audit Results:")
+    if pa.get("output"):
+        print(pa["output"])
+    else:
+        print(pa.get("error", "No output"))
 
-# TruffleHog
-trufflehog_output = report.get("trufflehog", {}).get("output", "").strip()
-trufflehog_error = report.get("trufflehog", {}).get("error", "").strip()
-print("\nTruffleHog Results:")
-if trufflehog_output or trufflehog_error:
-    print(trufflehog_output or trufflehog_error)
-else:
-    print("No secrets found.\n")
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: python3 report_summary.py <scan-report-file.json>")
+        sys.exit(1)
 
-# pip-audit
-pip_output = report.get("pip_audit", {}).get("output", "").strip()
-pip_error = report.get("pip_audit", {}).get("error", "").strip()
-print("\npip-audit Results:")
-if pip_output or pip_error:
-    print(pip_output or pip_error)
-else:
-    print("No Python package vulnerabilities found.\n")
+    report_file = sys.argv[1]
+    summarize_report(report_file)
