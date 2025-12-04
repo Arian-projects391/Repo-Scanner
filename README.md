@@ -26,6 +26,7 @@ source .venv/bin/activate
 
 Install dependencies:
 pip install -r requirements.txt
+NOTE: pip‑audit runs only if the scanned repository contains a requirements.txt file.
 
 Usage
 Follow these steps to scan a Git repository:
