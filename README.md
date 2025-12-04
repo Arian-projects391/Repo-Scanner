@@ -74,3 +74,13 @@ This project is licensed under the MIT License. See the LICENSE
 
 Contributing
 Contributions are welcome! Feel free to submit pull requests or open issues for suggestions and improvements.
+
+⚠️ **Disclaimer:** Repo-Scanner is intended for use **only on repositories you own or have explicit permission to scan**. 
+Unauthorized scanning of repositories may violate laws or terms of service. Use responsibly and ethically.
+
+🔒 **Privacy:** Repo-Scanner runs locally and does not transmit any repository data to external servers. 
+Scan reports are saved locally on your machine.
+
+⚠️ **Accuracy:** The scan may not detect all security issues or secrets. 
+Use the results as guidance, but always perform additional security checks as needed. 
+The author is not responsible for any misuse or missed vulnerabilities.
