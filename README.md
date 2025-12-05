@@ -55,13 +55,11 @@ Option B: Official install script
 curl -sSfL https://get.semgrep.dev | sh
 export PATH="$HOME/.local/bin:$PATH"
 semgrep --version
-Run the scanner:
 
+Run the scanner:
 python3 scanner.py --url <git-repo-url> --outdir reports
 
-
 Example:
-
 python3 scanner.py --url https://github.com/Arian-projects391/Repo-Scanner.git --outdir reports
 
 
