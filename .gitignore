@@ -5,8 +5,15 @@ semgrep-venv/
 
 # Reports
 scan-report.json
+scan-report_*.json
+reports/
+*.html
+*.md
+*.pdf
 
 # Python cache
 __pycache__/
 *.pyc
-scan-report.json
+
+# Backup / editor files
+*.save
