@@ -20,6 +20,7 @@ A comprehensive GitHub repository scanner that uses multiple tools to analyze a 
 ## **Quick Start: Setup & Scan**
 
 1️⃣ **Clone the repo:**
+NOTE: for any updates run git pull
 
 ```bash
 git clone https://github.com/Arian-projects391/Repo-Scanner.git
