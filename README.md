@@ -1,72 +1,184 @@
-# Repo-Scanner
+# Repo Scanner
 
-Repo-Scanner is a Python-based tool for scanning Git repositories for potential security issues, secrets, and vulnerable dependencies. It integrates **Semgrep**, **TruffleHog**, and **pip-audit** to provide comprehensive reports.
+A comprehensive GitHub repository scanner that uses multiple tools to analyze a repository for security issues, sensitive data leaks, dependency vulnerabilities, and code quality concerns. Generates reports in **JSON, HTML, Markdown, and PDF** formats.
 
-## Features
+---
 
-- **Semgrep Integration:** Detects security issues and code patterns.
-- **TruffleHog Integration:** Finds secrets such as passwords, API keys, and tokens.
-- **pip-audit Integration:** Audits Python dependencies for known vulnerabilities.
-- Handles repositories of various sizes and creates detailed scan reports.
-- Generates a JSON report and provides a human-readable summary.
+## **Table of Contents**
 
-## Installation
+- [Quick Start](#quick-start-setup--scan)  
+- [Installation](#installation)  
+- [Setup](#setup)  
+- [Usage](#usage)  
+- [Reports](#reports)  
+- [Supported Scanners](#supported-scanners)  
+- [Git Ignore Tips](#git-ignore-tips)  
+- [Disclaimers](#disclaimers)  
 
-Clone the repository:
+---
+
+## **Quick Start: Setup & Scan**
+
+1️⃣ **Clone the repo:**
 
 ```bash
 git clone https://github.com/Arian-projects391/Repo-Scanner.git
 cd Repo-Scanner
 
-Create a Python virtual environment:
-python3 -m venv .venv
+Create and activate Python virtual environment (recommended):
+python3 -m venv ~/scanner-venv
+source ~/scanner-venv/bin/activate
 
-Activate the virtual environment:
-source .venv/bin/activate
+Install Python-based scanners in the environment:
+pip install safety pip-audit trufflehog weasyprint
 
-Install dependencies:
-pip install -r requirements.txt
-NOTE: pip‑audit runs only if the scanned repository contains a requirements.txt file.
+Install system/binary scanners:
+sudo apt update
+sudo apt install bandit yamllint flawfinder gitleaks
+
+
+Hadolint (binary install):
+sudo wget -O /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64
+sudo chmod +x /usr/local/bin/hadolint
+hadolint --version
+
+Semgrep:
+
+Option A: pipx (recommended)
+sudo apt install pipx
+pipx install semgrep
+semgrep --version
+
+
+Option B: Official install script
+curl -sSfL https://get.semgrep.dev | sh
+export PATH="$HOME/.local/bin:$PATH"
+semgrep --version
+Run the scanner:
+
+python3 scanner.py --url <git-repo-url> --outdir reports
+
+
+Example:
+
+python3 scanner.py --url https://github.com/Arian-projects391/Repo-Scanner.git --outdir reports
+
+
+6️⃣ View reports:
+
+JSON: reports/scan-report_<repo-name>_<timestamp>.json
+
+HTML: reports/scan-report_<repo-name>_<timestamp>.html
+
+Markdown: reports/scan-report_<repo-name>_<timestamp>.md
+
+PDF: reports/scan-report_<repo-name>_<timestamp>.pdf
+
+Installation
+
+If you prefer, you can also follow the detailed installation:
+
+Clone this repository:
+
+git clone https://github.com/Arian-projects391/Repo-Scanner.git
+cd Repo-Scanner
+
+
+(Optional but recommended) Create and activate a virtual environment:
+
+python3 -m venv ~/scanner-venv
+source ~/scanner-venv/bin/activate
+
+
+Install Python-based tools:
+
+pip install safety pip-audit trufflehog weasyprint
+
+
+Install system/binary tools:
+
+sudo apt update
+sudo apt install bandit yamllint flawfinder gitleaks
+
+
+Install Hadolint and Semgrep as described above.
+
+Setup
+
+Make sure all scanner binaries are in your PATH.
+
+Activate the Python virtual environment before running Python-based tools.
+
+Ensure system tools are installed globally via apt or as binaries.
 
 Usage
-Follow these steps to scan a Git repository:
+python3 scanner.py --url <git-repo-url> --outdir <report-directory>
 
-1. Activate the virtual environment
-Make sure your Python virtual environment is active:
-source .venv/bin/activate
 
-2. Run the main scanner script
-python3 scanner.py
+--url: GitHub repository URL to scan.
 
-3. Enter the repository URL
-When prompted, paste the Git repository URL you want to scan:
-Enter git clone URL: https://github.com/octocat/Hello-World
+--outdir: Directory for storing reports.
 
-4. Automatic scanning
-The scanner will automatically:
-Clone the repository into a temporary directory
-Run Semgrep to detect security issues and code patterns
-Run TruffleHog to detect secrets (passwords, API keys, tokens)
-Run pip-audit to detect vulnerable Python dependencies
-Generate a JSON report
+After the scan, the temporary clone is automatically removed.
 
-5. View the scan report
-The scan results are saved to:
-scan-report.json
+Reports
 
-6. Optional: Generate a human-readable summary
-python3 report_summary.py
+Reports are generated in multiple formats:
 
-This prints a formatted summary of all findings from the scan.
+JSON → scan-report_<repo-name>_<timestamp>.json
 
-Safe Handling & Security Tips
-When using Repo-Scanner, keep in mind:
-Do not scan sensitive or private repositories without permission.
-Only scan repositories you own or are authorized to scan.
-Avoid committing secrets like API keys or passwords in public repositories.
-Review JSON reports for sensitive information before sharing publicly.
-Use the tool in a virtual environment to avoid affecting system-wide Python packages.
-Keep dependencies up-to-date to minimize security risks in the scanner itself.
+HTML → scan-report_<repo-name>_<timestamp>.html
+
+Markdown → scan-report_<repo-name>_<timestamp>.md
+
+PDF → scan-report_<repo-name>_<timestamp>.pdf
+
+The temporary clone of the repository is removed after the scan to keep your system clean. Only the reports remain.
+
+Supported Scanners
+
+Semgrep – Security and code pattern scanning
+
+TruffleHog – Secrets and sensitive information detection
+
+Bandit – Python security static analysis
+
+Safety – Python dependency vulnerabilities
+
+Pip-audit – Python dependency auditing
+
+Hadolint – Dockerfile linting
+
+Flawfinder – C/C++ security analysis
+
+Yamllint – YAML syntax and style checking
+
+Gitleaks – Git repository secrets detection
+
+If a tool is not installed or cannot run, the scanner will skip it and notify you in the summary.
+
+Git Ignore Tips
+
+To keep your repo clean, the following .gitignore entries are recommended:
+
+# Virtual environments
+.venv/
+trufflehog-venv/
+semgrep-venv/
+
+# Scanner reports
+reports/
+scan-report_*.json
+*.html
+*.md
+*.pdf
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Backup / editor files
+*.save
 
 License
 This project is licensed under the MIT License. See the LICENSE
@@ -75,8 +187,14 @@ This project is licensed under the MIT License. See the LICENSE
 Contributing
 Contributions are welcome! Feel free to submit pull requests or open issues for suggestions and improvements.
 
-⚠️ **Disclaimer:** Repo-Scanner is intended for use **only on repositories you own or have explicit permission to scan**. 
-Unauthorized scanning of repositories may violate laws or terms of service. Use responsibly and ethically.
+⚠️ **Disclaimer:**
+This tool clones repositories temporarily to analyze code. It does not make permanent changes to your system.
+Scan results may include false positives or warnings — always review reports carefully.
+Generated reports may contain sensitive information; handle them securely.
+Use this scanner only on repositories you own or have permission to scan. Unauthorized scanning may be illegal and violate laws or terms of service.
+Some scanners (e.g., Semgrep, TruffleHog) require additional setup; follow instructions in Setup.
+The scanner is designed for educational and development purposes. Do not rely solely on it for security assurance.
+Use responsibly and ethically.
 
 🔒 **Privacy:** Repo-Scanner runs locally and does not transmit any repository data to external servers. 
 Scan reports are saved locally on your machine.
@@ -84,3 +202,5 @@ Scan reports are saved locally on your machine.
 ⚠️ **Accuracy:** The scan may not detect all security issues or secrets. 
 Use the results as guidance, but always perform additional security checks as needed. 
 The author is not responsible for any misuse or missed vulnerabilities.
+
+You’re now ready to scan repositories safely and efficiently!
