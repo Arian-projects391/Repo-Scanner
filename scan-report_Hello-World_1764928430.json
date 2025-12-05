@@ -1,0 +1,15 @@
+{
+  "repo": "https://github.com/octocat/Hello-World",
+  "semgrep": {
+    "output": "{\"version\":\"1.144.0\",\"results\":[],\"errors\":[],\"paths\":{\"scanned\":[\"/tmp/tmpgdfavgog/Hello-World/README\"]},\"time\":{\"rules\":[],\"rules_parse_time\":0.0289459228515625,\"profiling_times\":{\"config_time\":4.60692834854126,\"core_time\":0.32083797454833984,\"ignores_time\":6.556510925292969e-05,\"total_time\":4.9290056228637695},\"parsing_time\":{\"total_time\":0.0,\"per_file_time\":{\"mean\":0.0,\"std_dev\":0.0},\"very_slow_stats\":{\"time_ratio\":0.0,\"count_ratio\":0.0},\"very_slow_files\":[]},\"scanning_time\":{\"total_time\":0.00024509429931640625,\"per_file_time\":{\"mean\":0.00024509429931640625,\"std_dev\":0.0},\"very_slow_stats\":{\"time_ratio\":0.0,\"count_ratio\":0.0},\"very_slow_files\":[]},\"matching_time\":{\"total_time\":0.0,\"per_file_and_rule_time\":{\"mean\":0.0,\"std_dev\":0.0},\"very_slow_stats\":{\"time_ratio\":0.0,\"count_ratio\":0.0},\"very_slow_rules_on_files\":[]},\"tainting_time\":{\"total_time\":0.0,\"per_def_and_rule_time\":{\"mean\":0.0,\"std_dev\":0.0},\"very_slow_stats\":{\"time_ratio\":0.0,\"count_ratio\":0.0},\"very_slow_rules_on_defs\":[]},\"fixpoint_timeouts\":[],\"prefiltering\":{\"project_level_time\":0.0,\"file_level_time\":0.0,\"rules_with_project_prefilters_ratio\":0.0,\"rules_with_file_prefilters_ratio\":1.0,\"rules_selected_ratio\":0.0,\"rules_matched_ratio\":0.0},\"targets\":[],\"total_bytes\":0,\"max_memory_bytes\":107377664},\"engine_requested\":\"OSS\",\"skipped_rules\":[],\"profiling_results\":[]}\n",
+    "error": "               \n               \n\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n\u2502 Scan Status \u2502\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n  Scanning 1 file tracked by git with 32 Code rules:\n  Scanning 1 file with 3 <multilang> rules.\n                \n                \n\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n\u2502 Scan Summary \u2502\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n\u2705 Scan completed successfully.\n \u2022 Findings: 0 (0 blocking)\n \u2022 Rules run: 3\n \u2022 Targets scanned: 1\n \u2022 Parsed lines: ~100.0%\n \u2022 Scan was limited to files tracked by git\n \u2022 For a detailed list of skipped files and lines, run semgrep with the --verbose flag\nRan 3 rules on 1 file: 0 findings.\n(need more rules? `semgrep login` for additional free Semgrep Registry rules)\n\nIf Semgrep missed a finding, please send us feedback to let us know!\nSee https://semgrep.dev/docs/reporting-false-negatives/\n"
+  },
+  "trufflehog": {
+    "output": "",
+    "error": ""
+  },
+  "pip_audit": {
+    "output": "",
+    "error": "No requirements.txt found"
+  }
+}

@@ -1,0 +1,27 @@
+enabled_scanners:
+  - semgrep
+  - trufflehog
+  - bandit
+  - gitleaks
+  - flawfinder
+  - safety
+  - yamllint
+  - hadolint
+  - pip-audit
+
+tool_paths:
+  semgrep: /home/youruser/semgrep-venv/bin/semgrep
+  trufflehog: /home/youruser/trufflehog-venv/bin/trufflehog
+  bandit: bandit
+  gitleaks: gitleaks
+  flawfinder: flawfinder
+  safety: safety
+  yamllint: yamllint
+  hadolint: hadolint
+  pip_audit: pip-audit
+
+html_output: true
+pdf_output: true
+markdown_output: true
+parallel_scans: true
+max_workers: 4

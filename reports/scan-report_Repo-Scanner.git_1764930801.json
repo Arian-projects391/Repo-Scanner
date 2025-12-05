@@ -1,0 +1,52 @@
+{
+  "repository": "https://github.com/Arian-projects391/Repo-Scanner.git",
+  "path": "/tmp/repo-scan-acwaiwmx/Repo-Scanner.git",
+  "timestamp": 1764930801,
+  "results": {
+    "semgrep": {
+      "output": "",
+      "stderr": "Semgrep not installed \u2014 skipping.",
+      "rc": 127
+    },
+    "bandit": {
+      "output": "",
+      "stderr": "Bandit not installed \u2014 skipping.",
+      "rc": 127
+    },
+    "trufflehog": {
+      "output": "",
+      "stderr": "TruffleHog not installed \u2014 skipping.",
+      "rc": 127
+    },
+    "safety": {
+      "output": "",
+      "stderr": "Safety not installed \u2014 skipping.",
+      "rc": 127
+    },
+    "hadolint": {
+      "output": "",
+      "stderr": "No Dockerfile found",
+      "rc": 0
+    },
+    "pip-audit": {
+      "output": "",
+      "stderr": "No requirements.txt found for pip-audit",
+      "rc": 0
+    },
+    "flawfinder": {
+      "output": "",
+      "stderr": "Flawfinder not installed \u2014 skipping.",
+      "rc": 127
+    },
+    "yamllint": {
+      "output": "",
+      "stderr": "yamllint not installed \u2014 skipping.",
+      "rc": 127
+    },
+    "gitleaks": {
+      "output": "",
+      "stderr": "\n    \u25cb\n    \u2502\u2572\n    \u2502 \u25cb\n    \u25cb \u2591\n    \u2591    gitleaks\n\n\u001b[90m5:33AM\u001b[0m \u001b[32mINF\u001b[0m 12 commits scanned.\n\u001b[90m5:33AM\u001b[0m \u001b[32mINF\u001b[0m scan completed in 673ms\n\u001b[90m5:33AM\u001b[0m \u001b[31mWRN\u001b[0m leaks found: 8\n",
+      "rc": 1
+    }
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "repo": "https://github.com/Arian-projects391/Repo-Scanner.git",
+  "timestamp": 1764931899,
+  "semgrep": {
+    "output": "",
+    "error": "Semgrep not installed \u2014 skipping."
+  },
+  "trufflehog": {
+    "output": "",
+    "error": "TruffleHog not installed \u2014 skipping."
+  },
+  "bandit": {
+    "output": "{\n  \"errors\": [],\n  \"generated_at\": \"2025-12-05T10:51:39Z\",\n  \"metrics\": {\n    \"/tmp/tmpaw_0r5u4/Repo-Scanner.git/report_summary.py\": {\n      \"CONFIDENCE.HIGH\": 0,\n      \"CONFIDENCE.LOW\": 0,\n      \"CONFIDENCE.MEDIUM\": 0,\n      \"CONFIDENCE.UNDEFINED\": 0,\n      \"SEVERITY.HIGH\": 0,\n      \"SEVERITY.LOW\": 0,\n      \"SEVERITY.MEDIUM\": 0,\n      \"SEVERITY.UNDEFINED\": 0,\n      \"loc\": 30,\n      \"nosec\": 0,\n      \"skipped_tests\": 0\n    },\n    \"/tmp/tmpaw_0r5u4/Repo-Scanner.git/scanner.py\": {\n      \"CONFIDENCE.HIGH\": 2,\n      \"CONFIDENCE.LOW\": 0,\n      \"CONFIDENCE.MEDIUM\": 0,\n      \"CONFIDENCE.UNDEFINED\": 0,\n      \"SEVERITY.HIGH\": 0,\n      \"SEVERITY.LOW\": 2,\n      \"SEVERITY.MEDIUM\": 0,\n      \"SEVERITY.UNDEFINED\": 0,\n      \"loc\": 61,\n      \"nosec\": 0,\n      \"skipped_tests\": 0\n    },\n    \"_totals\": {\n      \"CONFIDENCE.HIGH\": 2,\n      \"CONFIDENCE.LOW\": 0,\n      \"CONFIDENCE.MEDIUM\": 0,\n      \"CONFIDENCE.UNDEFINED\": 0,\n      \"SEVERITY.HIGH\": 0,\n      \"SEVERITY.LOW\": 2,\n      \"SEVERITY.MEDIUM\": 0,\n      \"SEVERITY.UNDEFINED\": 0,\n      \"loc\": 91,\n      \"nosec\": 0,\n      \"skipped_tests\": 0\n    }\n  },\n  \"results\": [\n    {\n      \"code\": \"1 import os\\n2 import subprocess\\n3 import json\\n\",\n      \"col_offset\": 0,\n      \"end_col_offset\": 17,\n      \"filename\": \"/tmp/tmpaw_0r5u4/Repo-Scanner.git/scanner.py\",\n      \"issue_confidence\": \"HIGH\",\n      \"issue_cwe\": {\n        \"id\": 78,\n        \"link\": \"https://cwe.mitre.org/data/definitions/78.html\"\n      },\n      \"issue_severity\": \"LOW\",\n      \"issue_text\": \"Consider possible security implications associated with the subprocess module.\",\n      \"line_number\": 2,\n      \"line_range\": [\n        2\n      ],\n      \"more_info\": \"https://bandit.readthedocs.io/en/1.9.2/blacklists/blacklist_imports.html#b404-import-subprocess\",\n      \"test_id\": \"B404\",\n      \"test_name\": \"blacklist\"\n    },\n    {\n      \"code\": \"10     try:\\n11         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)\\n12         return result.stdout, result.stderr\\n\",\n      \"col_offset\": 17,\n      \"end_col_offset\": 95,\n      \"filename\": \"/tmp/tmpaw_0r5u4/Repo-Scanner.git/scanner.py\",\n      \"issue_confidence\": \"HIGH\",\n      \"issue_cwe\": {\n        \"id\": 78,\n        \"link\": \"https://cwe.mitre.org/data/definitions/78.html\"\n      },\n      \"issue_severity\": \"LOW\",\n      \"issue_text\": \"subprocess call - check for execution of untrusted input.\",\n      \"line_number\": 11,\n      \"line_range\": [\n        11\n      ],\n      \"more_info\": \"https://bandit.readthedocs.io/en/1.9.2/plugins/b603_subprocess_without_shell_equals_true.html\",\n      \"test_id\": \"B603\",\n      \"test_name\": \"subprocess_without_shell_equals_true\"\n    }\n  ]\n}",
+    "error": "[main]\tINFO\tprofile include tests: None\n[main]\tINFO\tprofile exclude tests: None\n[main]\tINFO\tcli include tests: None\n[main]\tINFO\tcli exclude tests: None\n"
+  },
+  "safety": {
+    "output": "",
+    "error": "No requirements.txt found for Safety"
+  },
+  "pip-audit": {
+    "output": "",
+    "error": "No requirements.txt found for pip-audit"
+  },
+  "yamllint": {
+    "output": "",
+    "error": ""
+  },
+  "flawfinder": {
+    "output": "Flawfinder version 2.0.19, (C) 2001-2019 David A. Wheeler.\nNumber of rules (primarily dangerous function names) in C/C++ ruleset: 222\n\nFINAL RESULTS:\n\n\nANALYSIS SUMMARY:\n\nNo hits found.\nLines analyzed = 0 in approximately 0.00 seconds (0 lines/second)\nPhysical Source Lines of Code (SLOC) = 0\nHits@level = [0]   0 [1]   0 [2]   0 [3]   0 [4]   0 [5]   0\nHits@level+ = [0+]   0 [1+]   0 [2+]   0 [3+]   0 [4+]   0 [5+]   0\n\nDot directories skipped = 1 (--followdotdir overrides)\nMinimum risk level = 1\n\nThere may be other security vulnerabilities; review your code!\nSee 'Secure Programming HOWTO'\n(https://dwheeler.com/secure-programs) for more information.\n",
+    "error": "Warning: Skipping directory with initial dot /tmp/tmpaw_0r5u4/Repo-Scanner.git/.git\n"
+  },
+  "gitleaks": {
+    "output": "",
+    "error": "\n    \u25cb\n    \u2502\u2572\n    \u2502 \u25cb\n    \u25cb \u2591\n    \u2591    gitleaks\n\n\u001b[90m5:51AM\u001b[0m \u001b[32mINF\u001b[0m 12 commits scanned.\n\u001b[90m5:51AM\u001b[0m \u001b[32mINF\u001b[0m scan completed in 685ms\n\u001b[90m5:51AM\u001b[0m \u001b[31mWRN\u001b[0m leaks found: 8\n"
+  },
+  "hadolint": {
+    "output": "",
+    "error": "No Dockerfile found"
+  }
+}

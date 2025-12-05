@@ -1,0 +1,535 @@
+#!/usr/bin/env python3
+"""
+scanner.py - Multi-scanner repo scanner
+Features:
+ - semgrep, trufflehog, bandit, gitleaks, flawfinder, safety, yamllint, hadolint
+ - per-tool existence checks (won't crash if missing)
+ - concurrent execution (ThreadPoolExecutor)
+ - JSON + HTML + optional PDF + Markdown outputs
+ - config via config.yml
+ - installer helper (setup.sh)
+"""
+
+import os
+import subprocess
+import json
+import tempfile
+import shutil
+import time
+from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import yaml     # pip install pyyaml
+import argparse
+
+# -----------------------
+# Colors & small helpers
+# -----------------------
+GREEN = "\033[92m"
+YELLOW = "\033[93m"
+RED = "\033[91m"
+BLUE = "\033[94m"
+RESET = "\033[0m"
+
+def eprint(*args, **kwargs):
+    print(*args, **kwargs)
+
+def is_tool(path_or_name):
+    """
+    Accept either a full path or a bare command name; if path -> check exists,
+    if name -> shutil.which
+    """
+    if not path_or_name:
+        return False
+    p = Path(path_or_name)
+    if p.exists():
+        return True
+    return shutil.which(path_or_name) is not None
+
+def run_cmd(cmd, cwd=None, timeout=None):
+    """Wrapper to run subprocess commands. returns (stdout, stderr, rc)"""
+    try:
+        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=cwd, timeout=timeout)
+        return proc.stdout or "", proc.stderr or "", proc.returncode
+    except subprocess.TimeoutExpired:
+        return "", "TimeoutExpired", 124
+    except FileNotFoundError as e:
+        return "", str(e), 127
+    except Exception as e:
+        return "", str(e), 1
+
+# -----------------------
+# Config
+# -----------------------
+DEFAULT_CONFIG = {
+    "enabled_scanners": ["semgrep", "trufflehog", "bandit", "gitleaks", "flawfinder", "safety", "yamllint", "hadolint"],
+    "tool_paths": {
+        # If you want to use virtualenvs, set these to full paths; otherwise set to tool names
+        "semgrep": str(Path.home() / "semgrep-venv/bin/semgrep"),
+        "trufflehog": str(Path.home() / "trufflehog-venv/bin/trufflehog"),
+        "bandit": "bandit",
+        "gitleaks": "gitleaks",
+        "flawfinder": "flawfinder",
+        "safety": "safety",
+        "yamllint": "yamllint",
+        "hadolint": "hadolint",
+        "pip_audit": "pip-audit"
+    },
+    "html_output": True,
+    "pdf_output": True,
+    "markdown_output": True,
+    "parallel_scans": True,
+    "max_workers": 4
+}
+
+def load_config(path="config.yml"):
+    cfg_path = Path(path)
+    if not cfg_path.exists():
+        return DEFAULT_CONFIG
+    try:
+        with open(cfg_path, "r") as f:
+            user_cfg = yaml.safe_load(f) or {}
+        # merge defaults
+        cfg = DEFAULT_CONFIG.copy()
+        cfg.update(user_cfg)
+        # shallow merge tool_paths
+        tp = cfg.get("tool_paths", {})
+        d_tp = DEFAULT_CONFIG["tool_paths"].copy()
+        d_tp.update(tp)
+        cfg["tool_paths"] = d_tp
+        return cfg
+    except Exception as e:
+        eprint(f"{YELLOW}Warning loading config.yml: {e}{RESET}")
+        return DEFAULT_CONFIG
+
+# -----------------------
+# Scanners
+# Each scanner returns dict { "output": "...", "stderr": "...", "rc": int, "meta": {...} }
+# -----------------------
+def scanner_semgrep(repo_path, tool_path):
+    if not is_tool(tool_path):
+        return {"output": "", "stderr": "Semgrep not installed — skipping.", "rc": 127}
+    # semgrep current CLI: `semgrep scan` (or `semgrep --json`). we use `semgrep` if available
+    cmd = [tool_path, "scan", "--json", "--severity=INFO", repo_path] if Path(tool_path).name == "semgrep" else [tool_path, "scan", "--json", "--severity=INFO", repo_path]
+    out, err, rc = run_cmd(cmd)
+    return {"output": out, "stderr": err, "rc": rc}
+
+def scanner_trufflehog(repo_path, tool_path):
+    if not is_tool(tool_path):
+        return {"output": "", "stderr": "TruffleHog not installed — skipping.", "rc": 127}
+    # some trufflehog versions: `trufflehog filesystem --json .` or `trufflehog --json repo_url`
+    # We'll prefer scanning local filesystem
+    cmd = [tool_path, "filesystem", "--json", repo_path] if shutil.which("trufflehog") and "filesystem" in shutil.which("trufflehog") else [tool_path, "--json", repo_path]
+    # Fallback to simple invocation if above fails:
+    out, err, rc = run_cmd(cmd)
+    if rc != 0 and err and "Unknown command" in err:
+        out, err, rc = run_cmd([tool_path, "--json", repo_path])
+    return {"output": out, "stderr": err, "rc": rc}
+
+def scanner_bandit(repo_path, tool_path):
+    if not is_tool(tool_path):
+        return {"output": "", "stderr": "Bandit not installed — skipping.", "rc": 127}
+    # bandit supports -f json and -r for recursive
+    cmd = [tool_path, "-r", repo_path, "-f", "json"]
+    out, err, rc = run_cmd(cmd)
+    return {"output": out, "stderr": err, "rc": rc}
+
+def scanner_gitleaks(repo_path, tool_path):
+    if not is_tool(tool_path):
+        return {"output": "", "stderr": "Gitleaks not installed — skipping.", "rc": 127}
+    # gitleaks detect --report-format=json --report-path=-
+    cmd = [tool_path, "detect", "--source", repo_path, "--report-format", "json"]
+    out, err, rc = run_cmd(cmd)
+    return {"output": out, "stderr": err, "rc": rc}
+
+def scanner_flawfinder(repo_path, tool_path):
+    if not is_tool(tool_path):
+        return {"output": "", "stderr": "Flawfinder not installed — skipping.", "rc": 127}
+    # flawfinder prints plain text by default
+    cmd = [tool_path, repo_path]
+    out, err, rc = run_cmd(cmd)
+    return {"output": out, "stderr": err, "rc": rc}
+
+def scanner_safety(repo_path, tool_path):
+    if not is_tool(tool_path):
+        return {"output": "", "stderr": "Safety not installed — skipping.", "rc": 127}
+    # safety can scan requirements.txt
+    req = Path(repo_path) / "requirements.txt"
+    if not req.exists():
+        return {"output": "", "stderr": "No requirements.txt found for safety", "rc": 0}
+    cmd = [tool_path, "check", "-r", str(req), "--json"]
+    out, err, rc = run_cmd(cmd)
+    return {"output": out, "stderr": err, "rc": rc}
+
+def scanner_yamllint(repo_path, tool_path):
+    if not is_tool(tool_path):
+        return {"output": "", "stderr": "yamllint not installed — skipping.", "rc": 127}
+    # run yamllint recursively and format compact
+    cmd = [tool_path, str(repo_path)]
+    out, err, rc = run_cmd(cmd)
+    return {"output": out, "stderr": err, "rc": rc}
+
+def scanner_hadolint(repo_path, tool_path):
+    if not is_tool(tool_path):
+        return {"output": "", "stderr": "Hadolint not installed — skipping.", "rc": 127}
+    # find Dockerfile(s) and run hadolint on them
+    dockerfiles = list(Path(repo_path).rglob("Dockerfile")) + list(Path(repo_path).rglob("dockerfile"))
+    if not dockerfiles:
+        return {"output": "", "stderr": "No Dockerfile found", "rc": 0}
+    outputs = []
+    for df in dockerfiles:
+        out, err, rc = run_cmd([tool_path, str(df)])
+        outputs.append({"file": str(df), "out": out, "err": err, "rc": rc})
+    return {"output": json.dumps(outputs), "stderr": "", "rc": 0}
+
+def scanner_pip_audit(repo_path, tool_path):
+    # Pip-audit checks dependencies
+    req = Path(repo_path) / "requirements.txt"
+    if not req.exists():
+        return {"output": "", "stderr": "No requirements.txt found for pip-audit", "rc": 0}
+    if not is_tool(tool_path):
+        return {"output": "", "stderr": "pip-audit not installed — skipping.", "rc": 127}
+    cmd = [tool_path, "-r", str(req), "--format", "json"]
+    out, err, rc = run_cmd(cmd)
+    return {"output": out, "stderr": err, "rc": rc}
+
+# Map scanner names to functions
+SCANNER_FUNCS = {
+    "semgrep": scanner_semgrep,
+    "trufflehog": scanner_trufflehog,
+    "bandit": scanner_bandit,
+    "gitleaks": scanner_gitleaks,
+    "flawfinder": scanner_flawfinder,
+    "safety": scanner_safety,
+    "yamllint": scanner_yamllint,
+    "hadolint": scanner_hadolint,
+    "pip-audit": scanner_pip_audit,
+    "pip_audit": scanner_pip_audit
+}
+
+# -----------------------
+# Output Formats: HTML / JSON / Markdown / PDF
+# -----------------------
+HTML_TEMPLATE = """
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Scan Report - {repo}</title>
+<style>
+body{{font-family:Inter, Arial, sans-serif; padding:20px; background:#f7f9fc}}
+h1{{color:#1f2937}}
+pre{{background:#0f172a; color:#e6eef8; padding:10px; border-radius:6px; overflow:auto}}
+.section{{background:#fff; padding:12px; margin-bottom:10px; border-radius:8px; box-shadow:0 1px 3px rgba(2,6,23,0.06)}}
+.meta{{font-size:90%; color:#6b7280}}
+.badge{{display:inline-block; padding:3px 8px; border-radius:999px; background:#e6f4ea; color:#065f46; margin-right:8px; font-weight:600}}
+</style>
+</head>
+<body>
+<h1>Scan Report: {repo}</h1>
+<div class="meta">Generated: {ts}</div>
+{sections}
+<script>
+function toggle(id){var e=document.getElementById(id); if(e.style.display==='none') e.style.display='block'; else e.style.display='none'}
+</script>
+</body>
+</html>
+"""
+
+def build_html(report_obj, out_path):
+    sections = []
+    idx = 0
+    for k, v in report_obj["results"].items():
+        idx += 1
+        safe_out = v["output"] or v.get("stderr","")
+        safe_out = (safe_out[:200000])  # avoid enormous embedding
+        section_html = f"""
+           <pre>{html_escape(safe_out)}</pre>        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+        <div class="section">         <span class="badge">{k}</span>
+         <button onclick="toggle('s{idx}')">Toggle output</button>
+         <div id="s{idx}" style="display:none">
+
+         </div>
+        </div>
+        """
+        sections.append(section_html)
+    html = HTML_TEMPLATE.format(repo=report_obj["repository"], ts=time.ctime(report_obj["timestamp"]), sections="\n".join(sections))
+    with open(out_path, "w") as f:
+        f.write(html)
+    return out_path
+
+def html_escape(s):
+    return (s.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;"))
+
+def build_markdown(report_obj, out_path):
+    lines = [f"# Scan Report: {report_obj['repository']}\n",
+             f"Generated: {time.ctime(report_obj['timestamp'])}\n"]
+    for k,v in report_obj["results"].items():
+        lines.append(f"## {k}\n")
+        text = v.get("output") or v.get("stderr") or ""
+        if len(text) > 10000:
+            lines.append("```text\n(large output omitted)\n```\n")
+        else:
+            lines.append("```text\n" + text + "\n```\n")
+    with open(out_path, "w") as f:
+        f.write("\n".join(lines))
+    return out_path
+
+def build_pdf(html_path, pdf_path):
+    # Try weasyprint, then pdfkit/wkhtmltopdf
+    try:
+        import weasyprint
+        weasyprint.HTML(html_path).write_pdf(pdf_path)
+        return True
+    except Exception:
+        # try pdfkit
+        try:
+            import pdfkit
+            pdfkit.from_file(html_path, pdf_path)
+            return True
+        except Exception:
+            return False
+
+# -----------------------
+# Orchestrator
+# -----------------------
+def run_all_scanners(repo_path, cfg, show_progress=True):
+    results = {}
+    enabled = cfg.get("enabled_scanners", [])
+    tool_paths = cfg.get("tool_paths", {})
+    parallel = cfg.get("parallel_scans", True)
+    max_workers = cfg.get("max_workers", 4)
+
+    tasks = []
+    if parallel:
+        with ThreadPoolExecutor(max_workers=max_workers) as exe:
+            futures = {}
+            for s in enabled:
+                func = SCANNER_FUNCS.get(s)
+                if not func:
+                    results[s] = {"output":"", "stderr":f"Scanner {s} not supported", "rc":1}
+                    continue
+                tp = tool_paths.get(s) or tool_paths.get(s.replace('-','_')) or s
+                futures[exe.submit(func, repo_path, tp)] = s
+            for fut in as_completed(futures):
+                name = futures[fut]
+                try:
+                    res = fut.result()
+                except Exception as e:
+                    res = {"output": "", "stderr": str(e), "rc": 1}
+                results[name] = res
+                if show_progress:
+                    print(f"{BLUE}[+] {name} finished: {res.get('stderr') or 'OK'}{RESET}")
+    else:
+        for s in enabled:
+            func = SCANNER_FUNCS.get(s)
+            if not func:
+                results[s] = {"output":"", "stderr":f"Scanner {s} not supported", "rc":1}
+                continue
+            tp = tool_paths.get(s) or tool_paths.get(s.replace('-','_')) or s
+            print(f"{BLUE}→ Running {s}{RESET}")
+            res = func(repo_path, tp)
+            results[s] = res
+            print(f"{BLUE}[+] {s} done: {res.get('stderr') or 'OK'}{RESET}")
+
+    return results
+
+# -----------------------
+# CLI / main
+# -----------------------
+def main():
+    parser = argparse.ArgumentParser(description="Repo multi-scanner")
+    parser.add_argument("--url", "-u", help="git clone URL (or local path if already cloned)")
+    parser.add_argument("--keep", action="store_true", help="Keep cloned repo (don't delete temp dir)")
+    parser.add_argument("--config", "-c", default="config.yml", help="Path to config.yml")
+    parser.add_argument("--outdir", "-o", default=".", help="Output directory for reports")
+    parser.add_argument("--no-html", action="store_true", help="Disable HTML output")
+    parser.add_argument("--no-pdf", action="store_true", help="Disable PDF output")
+    parser.add_argument("--no-markdown", action="store_true", help="Disable markdown output")
+    args = parser.parse_args()
+
+    cfg = load_config(args.config)
+    if args.no_html:
+        cfg["html_output"] = False
+    if args.no_pdf:
+        cfg["pdf_output"] = False
+    if args.no_markdown:
+        cfg["markdown_output"] = False
+
+    # Input repo
+    if args.url:
+        git_url = args.url.strip()
+    else:
+        git_url = input("Enter git clone URL or local path: ").strip()
+
+    # If local path
+    local_mode = False
+    if Path(git_url).exists():
+        local_mode = True
+        repo_path = os.path.abspath(git_url)
+        repo_name = Path(repo_path).name
+    else:
+        # clone to tmp dir
+        repo_name = git_url.rstrip("/").split("/")[-1]
+        tmp_dir = tempfile.mkdtemp(prefix="repo-scan-")
+        repo_path = os.path.join(tmp_dir, repo_name)
+        print(f"{BLUE}[+] Cloning {git_url} -> {repo_path}{RESET}")
+        out, err, rc = run_cmd(["git", "clone", git_url, repo_path])
+        if rc != 0:
+            print(f"{RED}[-] Git clone failed: {err}{RESET}")
+            if not args.keep:
+                shutil.rmtree(tmp_dir, ignore_errors=True)
+            return
+
+    print(f"{GREEN}[+] Scanning repository: {repo_path}{RESET}")
+
+    results = run_all_scanners(repo_path, cfg, show_progress=True)
+
+    timestamp = int(time.time())
+    report = {
+        "repository": git_url,
+        "path": repo_path,
+        "timestamp": timestamp,
+        "results": results
+    }
+
+    outdir = Path(args.outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    json_path = outdir / f"scan-report_{repo_name}_{timestamp}.json"
+    with open(json_path, "w") as f:
+        json.dump(report, f, indent=2)
+
+    print(f"{GREEN}[✓] JSON report written to {json_path}{RESET}")
+
+    # HTML
+    if cfg.get("html_output", True) and not args.no_html:
+        html_path = outdir / f"scan-report_{repo_name}_{timestamp}.html"
+        build_html(report, str(html_path))
+        print(f"{GREEN}[✓] HTML report written to {html_path}{RESET}")
+    else:
+        html_path = None
+
+    # Markdown
+    if cfg.get("markdown_output", True) and not args.no_markdown:
+        md_path = outdir / f"scan-report_{repo_name}_{timestamp}.md"
+        build_markdown(report, str(md_path))
+        print(f"{GREEN}[✓] Markdown report written to {md_path}{RESET}")
+
+    # PDF
+    if cfg.get("pdf_output", True) and not args.no_pdf:
+        if html_path:
+            pdf_path = outdir / f"scan-report_{repo_name}_{timestamp}.pdf"
+            ok = build_pdf(str(html_path), str(pdf_path))
+            if ok:
+                print(f"{GREEN}[✓] PDF report written to {pdf_path}{RESET}")
+            else:
+                print(f"{YELLOW}[!] PDF generation failed: no suitable library (weasyprint/pdfkit) or wkhtmltopdf not installed{RESET}")
+
+    # done
+    print(f"\n{YELLOW}--- Summary ---{RESET}")
+    for k,v in results.items():
+        status = "OK" if v.get("rc",1) == 0 and not v.get("stderr") else (v.get("stderr") or f"rc={v.get('rc')}")
+        print(f"{k:12s}: {status}")
+    print()
+
+    if not local_mode and not args.keep:
+        # cleanup
+        shutil.rmtree(Path(repo_path).parent, ignore_errors=True)
+        print(f"{BLUE}[i] Temp clone removed{RESET}")
+
+if __name__ == "__main__":
+    main()
