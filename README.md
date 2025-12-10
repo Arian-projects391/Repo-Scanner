@@ -65,6 +65,8 @@ python3 scanner.py --url https://github.com/Arian-projects391/Repo-Scanner.git -
 
 6️⃣ View reports:
 
+e.g xdg-open reports/<filename>.<path>
+
 JSON: reports/scan-report_<repo-name>_<timestamp>.json
 
 HTML: reports/scan-report_<repo-name>_<timestamp>.html
